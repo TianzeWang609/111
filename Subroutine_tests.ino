@@ -54,7 +54,8 @@ void course_correction() {
   Serial.print(frontVal);
   Serial.print("back Sensor: ");
   Serial.print(backVal);
-  right_motor ->setSpeed(150);
+  right_motor ->setSpeed(158);  // Max speed for right motor
+  left_motor ->setSpeed(150);  // Max speed for left motor
   if (leftVal == LOW && rightVal == LOW && frontVal == HIGH) {
     // Both sensors see black (move forward)
     right_motor->run(FORWARD);  // Move right motor forward
@@ -63,33 +64,36 @@ void course_correction() {
     
   } else if (leftVal == LOW && rightVal == HIGH && frontVal == HIGH) {
     // Left sensor sees black, right sensor sees white (turn left)
-    right_motor ->setSpeed(120);
+    right_motor ->setSpeed(140);
     right_motor ->run(FORWARD);  // Move right motor  backwards
     left_motor ->run(FORWARD);  // Move left motor forward
     Serial.println("adjusting left");
 
   }else if (leftVal == LOW && rightVal == HIGH && frontVal == LOW) {
-    // Left sensor sees black, right sensor sees white (turn left)
-    right_motor ->run(RELEASE);  // Move right motor  backwards
+    // Left sensor sees black, right sensor sees white (turn left extreme)
+    right_motor -> setSpeed(120);
+    right_motor ->run(FORWARD);  // Move right motor  backwards
     left_motor ->run(FORWARD);  // Move left motor forward
     Serial.println("adjusting left");
     
   } else if (leftVal == HIGH && rightVal == LOW && frontVal == HIGH) {
     // Right sensor sees black, left sensor sees white (turn right)
+    left_motor -> setSpeed(140);
     right_motor->run(FORWARD);  // Move the right motor forward
-    left_motor->run(RELEASE);  // Move the left motor backwards
+    left_motor->run(FORWARD);  // Move the left motor backwards
     Serial.println("adjusting right");
   } else if (leftVal == HIGH && rightVal == LOW && frontVal == LOW) {
-    // Right sensor sees black, left sensor sees white (turn right)
+    // Right sensor sees black, left sensor sees white (turn right extreme)
+    left_motor -> setSpeed(120);
     right_motor->run(FORWARD);  // Move the right motor forward
-    left_motor->run(RELEASE);  // Move the left motor backwards
+    left_motor->run(FORWARD);  // Move the left motor backwards
     Serial.println("adjusting right");
   }  else {
     right_motor->run(RELEASE);
     left_motor->run(RELEASE);
     Serial.println("Stopping, no line detected");
   }
-  delay(10);
+  delay(5); 
 }
 
 
