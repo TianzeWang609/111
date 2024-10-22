@@ -15,6 +15,11 @@ int rightInnerSensorPin = 5;  // Right inner line sensor connected to
 int startStopButtonPin = 7; // First button for start/stop
 int forwardButtonPin = 8;   // Second button for moving forward 5 seconds
 
+// Magnetic Sensor
+int magneticsensorpin = 7
+
+// Bluebox tracker
+int bluebox = 4
 // Variable to track system state (1 = running, 0 = stopped)
 int systemRunning = 0;
 bool isTurningRight = false;  // Flag for 90-degree right turn
@@ -40,6 +45,9 @@ void setup() {
   // Set up button pins
   pinMode(startStopButtonPin, INPUT);
   pinMode(forwardButtonPin, INPUT);
+
+  // Set up magnetic sensor pins
+  pinMode(magneticsensorpin, INPUT) 
   
   // Set initial motor speeds
   myMotor1->setSpeed(150);  // Speed for Motor 1 (left)
@@ -79,6 +87,8 @@ void loop() {
     int leftinnerVal = digitalRead(leftInnerSensorPin);    // Read left inner line sensor
     int rightinnerVal = digitalRead(rightInnerSensorPin);  // Read right inner line sensor
 
+    int magnetic = digitalRead(magneticsensorpin); // Read magnetic sensor
+
     // Print sensor values for debugging
     Serial.print(" | Left Outer Sensor: ");
     Serial.print(leftouterVal);
@@ -108,7 +118,7 @@ void loop() {
       executeRightTurn();
       return; // Exit the loop during the turn
     }
-
+    
     // Check for 90-degree left turn condition
     if (leftouterVal == HIGH && leftinnerVal == LOW && rightinnerVal == LOW && rightouterVal == LOW) {
       // Begin 90-degree left turn
@@ -201,4 +211,18 @@ void executeLeftTurn() {
 
   // Turn completed, reset the flag
   isTurningLeft = false;
+}
+
+// Function to detect magnetic box
+void magneticsensor() {
+  if (magnetic == HIGH) {
+    //Insert path to red deposit area
+  }
+  else {
+    //Run code to first blue box, should be 4
+    /*bluebox = bluebox + 1
+    if (bluebox == 8) {
+      bluebox = 4
+    }*/ 
+  }
 }
