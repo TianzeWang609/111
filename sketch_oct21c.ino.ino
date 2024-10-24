@@ -2,14 +2,18 @@
 
 // Create the motor shield object
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
-Adafruit_DCMotor *myMotor1 = AFMS.getMotor(3);  // Motor on M3 (left motor)
-Adafruit_DCMotor *myMotor2 = AFMS.getMotor(4);  // Motor on M4 (right motor)
+Adafruit_DCMotor *right_motor = AFMS.getMotor(3);  // Motor on port 3 (right motor)
+Adafruit_DCMotor *left_motor = AFMS.getMotor(4);  // Motor on port 4 (left motor)
 
 // Line sensor pins
-int leftOuterSensorPin = 3;   // Left outer line sensor connected to pin 2
-int rightOuterSensorPin = 2;  // Right outer line sensor connected to pin 3
-int leftInnerSensorPin = 6;   // Left inner line sensor connected to pin 6
-int rightInnerSensorPin = 5;  // Right inner line sensor connected to 
+int leftSensorPin = 3;   // initialising variables
+int rightSensorPin = 2;  
+int frontrightSensorPin = 6;
+int frontleftSensorPin = 5;
+int leftVal = 0;    // creating global variable for values of pin
+int rightVal = 0;
+int frontrightVal = 0;
+int frontleftVal = 0 ;
 
 // Button pins
 int startStopButtonPin = 7; // First button for start/stop
@@ -17,10 +21,12 @@ int forwardButtonPin = 8;   // Second button for moving forward 5 seconds
 
 // Variable to track system state (1 = running, 0 = stopped)
 int systemRunning = 0;
-bool isTurningRight = false;  // Flag for 90-degree right turn
-bool isTurningLeft = false;   // Flag for 90-degree left turn
 int tJunctionCount = 0;       // Counter to track how many T-junctions have been encountered
-bool crossChecker = false: //Flag for checking for a cross junction
+int left_turn_counter = 0 ;
+int right_turn_counter = 0;
+bool junctionDetected = false;
+bool pathComplete = false;
+
 void setup() {
   Serial.begin(9600);         
   Serial.println("Adafruit Motorshield v2 - Dual Line Sensor Controlled Motors!");
@@ -30,23 +36,6 @@ void setup() {
     while (1);
   }
   Serial.println("Motor Shield found.");
-  
-  // Set up line sensor pins
-  pinMode(leftOuterSensorPin, INPUT);
-  pinMode(rightOuterSensorPin, INPUT);
-  pinMode(leftInnerSensorPin, INPUT);
-  pinMode(rightInnerSensorPin, INPUT);
-
-  // Set up button pins
-  pinMode(startStopButtonPin, INPUT);
-  pinMode(forwardButtonPin, INPUT);
-  
-  // Set initial motor speeds
-  myMotor1->setSpeed(150);  // Speed for Motor 1 (left)
-  myMotor2->setSpeed(150);  // Speed for Motor 2 (right)
-}
-
-void loop() {
   // Check if the start/stop button has been pressed
   if (digitalRead(startStopButtonPin) == HIGH) {
     systemRunning = !systemRunning; // Toggle system state
@@ -55,150 +44,157 @@ void loop() {
       Serial.println("System started");
     } else {
       Serial.println("System stopped");
-      myMotor1->run(RELEASE);  // Stop both motors
-      myMotor2->run(RELEASE);
+      right_motor->run(RELEASE);  // Stop both motors
+      left_motor->run(RELEASE);
       return; // Exit loop if system is stopped
     }
   }
+  // Set up line sensor pins
+  pinMode(leftSensorPin, INPUT);
+  pinMode(rightSensorPin, INPUT);
+  pinMode(frontrightSensorPin, INPUT);
+  pinMode(frontleftSensorPin, INPUT);
+  // Set initial motor speeds
+  right_motor ->setSpeed(158);  // Max speed for right motor
+  left_motor ->setSpeed(150);  // Max speed for left motor
+}
 
-  // If system is running and not turning, check the second button for 5-second forward movement
-  if (systemRunning && !isTurningRight && !isTurningLeft) {
-    if (digitalRead(forwardButtonPin) == HIGH) {
-      Serial.println("Moving forward for 5 seconds");
-      myMotor1->run(FORWARD);  // Move left motor forward
-      myMotor2->run(FORWARD);  // Move right motor forward
-      delay(5000);  // Move forward for 5 seconds
-      myMotor1->run(RELEASE);  // Stop both motors after 5 seconds
-      myMotor2->run(RELEASE);
-      delay(300);  // Debounce delay
-    }
+void loop() {
+  // Read the values from the line sensors
+  int leftVal = digitalRead(leftSensorPin);    // Read the line sensors
+  int rightVal = digitalRead(rightSensorPin);
+  int frontrightVal = digitalRead(frontrightSensorPin);
+  int frontleftVal = digitalRead(frontleftSensorPin);
 
-    // If the forward button is not pressed, execute the normal line-following logic
-    int leftouterVal = digitalRead(leftOuterSensorPin);    // Read left outer line sensor
-    int rightouterVal = digitalRead(rightOuterSensorPin);  // Read right outer line sensor
-    int leftinnerVal = digitalRead(leftInnerSensorPin);    // Read left inner line sensor
-    int rightinnerVal = digitalRead(rightInnerSensorPin);  // Read right inner line sensor
+  // Print sensor values for debugging
+  Serial.print("Left Sensor: ");
+  Serial.print(leftVal);
+  Serial.print("Right Sensor: ");
+  Serial.println(rightVal);
+  Serial.print("front right Sensor: ");
+  Serial.print(frontrightVal);
+  Serial.print("front left Sensor: ");
+  Serial.print(frontleftVal);
 
-    // Print sensor values for debugging
-    Serial.print(" | Left Outer Sensor: ");
-    Serial.print(leftouterVal);
-    Serial.print(" | Right Outer Sensor: ");
-    Serial.print(rightouterVal);
-    Serial.print(" | Left Inner Sensor: ");
-    Serial.print(leftinnerVal);
-    Serial.print(" | Right Inner Sensor: ");
-    Serial.println(rightinnerVal);
+  // start subroutines for line following and routing 
+  junction_checker() ;
+  //course_correction() ;
+  goFrom1To2();
+}
 
-    // Check for cross-junction condition (all sensors are HIGH)
-    if (crossChecker == true && leftVal == HIGH && rightVal == HIGH && frontVal == HIGH) {
-      // Cross-junction detected: Move forward
-      Serial.println("Cross-junction detected: Moving forward");
-      myMotor1->run(FORWARD);  // Continue moving forward
-      myMotor2->run(FORWARD);
-      delay(1000);  // Move forward for a bit before checking again
-      return;  // Continue moving forward, do not turn
-    }
+void course_correction() {
+  right_motor ->setSpeed(150);  // Max speed for right motor
+  left_motor ->setSpeed(150);  // Max speed for left motor
+  if (leftVal == LOW && rightVal == LOW ) {
+    // all sensors see black (move forward)
+    right_motor->run(BACKWARD);  
+    left_motor->run(BACKWARD);  
+    Serial.println("Driving forward");
 
-    // Check for 90-degree right turn condition
-    if (leftouterVal == LOW && leftinnerVal == LOW && rightinnerVal == LOW && rightouterVal == HIGH) {
-      // Begin 90-degree right turn
-      serial.println("Turning right")
-      isTurningRight = true;
-      Serial.println("Executing 90-degree right turn");
-      executeRightTurn();
-      return; // Exit the loop during the turn
-    }
+  }else if (leftVal == LOW && rightVal == HIGH) {
+    // Left sensor sees black, right sensor sees white (turn left extreme)
+    left_motor -> setSpeed(130);
+    right_motor ->run(BACKWARD);  
+    left_motor ->run(BACKWARD);  
+    Serial.println("adjusting left");
+    
+  } else if (leftVal == HIGH && rightVal == LOW) {
+    // Right sensor sees black, left sensor sees white (turn right) , 2 front see black
+    right_motor -> setSpeed(130);
+    right_motor->run(BACKWARD);  
+    left_motor->run(BACKWARD);  
+    Serial.println("adjusting right");
+  }
+  delay(5); 
+}
 
-    // Check for 90-degree left turn condition
-    if (leftouterVal == HIGH && leftinnerVal == LOW && rightinnerVal == LOW && rightouterVal == LOW) {
-      // Begin 90-degree left turn
-      serial.println("Turning left")
-      isTurningLeft = true;
-      Serial.println("Executing 90-degree left turn");
-      executeLeftTurn();
-      return; // Exit the loop during the turn
-    }
+void right_turn() {
+  // programme to let the robot turn to the right
+  left_motor -> setSpeed(150);
+  right_motor -> setSpeed(158);
+  right_motor ->run(BACKWARD);  
+  left_motor ->run(FORWARD);  
+  Serial.println(" Turning right ");
+  delay(1000) ;
+}
+   
+void left_turn() {
+  // programme to let the robot turn to the left
+  left_motor -> setSpeed(150);
+  right_motor -> setSpeed(158);
+  right_motor ->run(FORWARD);  
+  left_motor ->run(BACKWARD);  
+  Serial.println(" Turning left ");
+  delay(1000) ;
+}
 
-    // Check for T-junction condition (both  outer left and right sensors are HIGH, both inner are LOW)
-    if (leftouterVal == HIGH && rightouterVal == HIGH && leftinnerVal == LOW && rightinnerVal == LOW) {
-      tJunctionCount++;  // Increment T-junction count
-      serial.println("T junction detected")
-      if (tJunctionCount == 1) {
-        // First T-junction: Turn left
-        isTurningLeft = true;
-        Serial.println("T-junction 1: Turning left");
-        executeLeftTurn();
-      } else if (tJunctionCount == 2) {
-        // Second T-junction: Turn right
-        isTurningRight = true;
-        Serial.println("T-junction 2: Turning right");
-        executeRightTurn();
-      }
-      return; // Exit the loop during the turn
-    }
 
-    // Control logic based on sensor readings
-    if (leftinnerVal == LOW && rightinnerVal == LOW) {
-      myMotor1->run(FORWARD);  // Move left motor 
-      myMotor2->run(FORWARD);  // Move right motor forward
-      Serial.println("Driving forward");
-    } else if (leftinnerVal == LOW && rightinnerVal == HIGH) {
-      myMotor2->run(BACKWARD);  // Move right motor 
-      myMotor1->run(FORWARD);  // Move left motor forward
-      Serial.println("Adjusting left");
-    } else if (leftinnerVal == HIGH && rightinnerVal == LOW) {
-      myMotor2->run(FORWARD);  // Move right motor forward
-      myMotor1->run(BACKWARD);  // Stop left motor
-      Serial.println("Adjusting right");
-    } else {
-      myMotor2->run(RELEASE);
-      myMotor1->run(RELEASE);
-      Serial.println("Stopping, no line detected");       // later modify to return to known psoition given line is not detected. ie if robot is lost
-    }
+void junction_checker() {
+  // delay to ensure that reading is accurate in case robot is at strange angle
+  if (frontrightVal == HIGH && frontleftVal == LOW) {
+    delay(100) ;
+  } else if (frontrightVal == LOW && frontleftVal == HIGH) { 
+    delay(100) ;
+  }
 
-    // Small delay to avoid rapid looping
-    delay(50);
+  // re-read line data after a delay
+  leftVal = digitalRead(leftSensorPin);    // Read the line sensors
+  rightVal = digitalRead(rightSensorPin);
+  frontrightVal = digitalRead(frontrightSensorPin);
+  frontleftVal = digitalRead(frontleftSensorPin);
+
+ // add appropriate counts to turns detected 
+
+  if ( frontrightVal == HIGH && frontleftVal == HIGH){
+  // both left and right see white t junction
+    tJunctionCount = tJunctionCount + 1 ;
+    junctionDetected == true;
+    Serial.println(" T Junction detected ");
+  }
+  if ( frontrightVal == HIGH && frontleftVal == LOW){
+  // right sees white , left sees black
+    right_turn_counter = right_turn_counter + 1 ;
+    junctionDetected == true;
+    Serial.println(" right turn detected ");
+  }
+  if ( frontrightVal == LOW && frontleftVal == HIGH) {
+  // left sees white , left sees black
+    left_turn_counter = left_turn_counter + 1 ;
+    junctionDetected == true;
+    Serial.println(" left turn detected ");
   }
 }
 
-// Function to execute a 90-degree right turn
-void executeRightTurn() {
-  // Set both motors to turn the robot right
-  myMotor1->setSpeed(150);  // Set left motor speed
-  myMotor2->setSpeed(150);  // Set right motor speed
 
-  // Execute a right turn by running the left motor backward and right motor forward
-  myMotor1->run(BACKWARD);  // Left motor moves backward
-  myMotor2->run(FORWARD);   // Right motor moves forward
+void goFrom1To2() {
+  Serial.println("Starting path 1 to 2");
+  while (pathComplete == false) {
+    if (junctionDetected == true) {
+      junction_checker();
+      if (right_turn_counter == 4 && tJunctionCount == 5) {
+        pathComplete = true ;
+      }
 
-  // Adjust the delay to achieve a 90-degree turn (may need tuning based on motor power and turn duration)
-  delay(1000);  // This delay should be fine-tuned to complete the 90-degree turn
+      if (tJunctionCount == 3) {
+        left_turn() ;
+      }
 
-  // Stop the motors after completing the turn
-  myMotor1->run(RELEASE);  
-  myMotor2->run(RELEASE);  
+      else if (tJunctionCount == 5) {
+      right_turn() ;
+      }
 
-  // Turn completed, reset the flag
-  isTurningRight = false;
-}
+      else if (right_turn_counter == 2 || right_turn_counter == 3 || right_turn_counter == 4) {
+        right_turn() ;
+      }
 
-// Function to execute a 90-degree left turn
-void executeLeftTurn() {
-  // Set both motors to turn the robot left
-  myMotor1->setSpeed(150);  // Set left motor speed
-  myMotor2->setSpeed(150);  // Set right motor speed
+      junctionDetected = false;
+    }  
+    else {
+      course_correction();
+    }
+    
 
-  // Execute a left turn by running the right motor backward and left motor forward
-  myMotor1->run(FORWARD);   // Left motor moves forward
-  myMotor2->run(BACKWARD);  // Right motor moves backward
+  }
+  
 
-  // Adjust the delay to achieve a 90-degree turn (may need tuning based on motor power and turn duration)
-  delay(1000);  // This delay should be fine-tuned to complete the 90-degree turn
-
-  // Stop the motors after completing the turn
-  myMotor1->run(RELEASE);  
-  myMotor2->run(RELEASE);  
-
-  // Turn completed, reset the flag
-  isTurningLeft = false;
 }
