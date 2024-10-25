@@ -171,9 +171,7 @@ void goFrom1To2() {
   while (pathComplete == false) {
     if (junctionDetected == true) {
       junction_checker();
-      if (right_turn_counter == 4 && tJunctionCount == 5) {
-        pathComplete = true ;
-      }
+
 
       if (tJunctionCount == 3) {
         left_turn() ;
@@ -187,14 +185,75 @@ void goFrom1To2() {
         right_turn() ;
       }
 
+      else if (right_turn_counter == 4 && tJunctionCount == 5) {
+        pathComplete = true ;
+      }
       junctionDetected = false;
     }  
     else {
       course_correction();
     }
-    
+  right_turn_counter = 0
+  tjunctionCount = 0
 
   }
   
+
+}
+
+void goFrom2To4(){
+  Serial.println("Starting path 2 to 4");
+  while (pathComplete == false) {
+    if (junctionDetected == true) {
+      junction_checker();
+      if (tJunctionCount == 3) {
+        pathComplete = true ;
+      }
+
+      else if (tJunctionCount == 1 || tJunctionCount == 2) {
+        right_turn() ;
+      }
+
+      junctionDetected = false;
+    }  
+    else {
+      course_correction();
+    }
+  tJunctionCount = 0
+}
+
+void goFrom2To5(){
+
+}
+
+void goFrom2To8(){
+
+}
+
+void goFrom2To7(){
+
+}
+
+void goFrom3To4(){
+
+}
+
+void goFrom3To5(){
+
+}
+
+void goFrom3To8(){
+
+}
+
+void goFrom3To7(){
+
+}
+
+void goFrom2To3(){
+
+}
+
+void goFrom7To1(){
 
 }
