@@ -3,7 +3,7 @@
 // Create the motor shield object
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *right_motor = AFMS.getMotor(3);  // Motor on port 3 (right motor)
-Adafruit_DCMotor *left_motor = AFMS.getMotor(4);  // Motor on port 4 (left motor)
+Adafruit_DCMotor *left_motor = AFMS.getMotor(2);  // Motor on port 4 (left motor)
 
 // Line sensor pins
 int leftSensorPin = 3;   // initialising variables
@@ -85,24 +85,24 @@ void loop() {
 void course_correction() {
   right_motor ->setSpeed(150);  // Max speed for right motor
   left_motor ->setSpeed(150);  // Max speed for left motor
-  if (leftVal == LOW && rightVal == LOW ) {
-    // all sensors see black (move forward)
-    right_motor->run(BACKWARD);  
-    left_motor->run(BACKWARD);  
+  if (leftVal == HIGH && rightVal == HIGH ) {
+    // BACK 2 sensors see white (move forward)
+    right_motor->run(FORWARD);  
+    left_motor->run(FORWARD);  
     Serial.println("Driving forward");
 
   }else if (leftVal == LOW && rightVal == HIGH) {
     // Left sensor sees black, right sensor sees white (turn left extreme)
     left_motor -> setSpeed(130);
-    right_motor ->run(BACKWARD);  
-    left_motor ->run(BACKWARD);  
+    right_motor ->run(FORWARD);  
+    left_motor ->run(FORWARD);  
     Serial.println("adjusting left");
     
   } else if (leftVal == HIGH && rightVal == LOW) {
     // Right sensor sees black, left sensor sees white (turn right) , 2 front see black
     right_motor -> setSpeed(130);
-    right_motor->run(BACKWARD);  
-    left_motor->run(BACKWARD);  
+    right_motor->run(FORWARD);  
+    left_motor->run(FORWARD);  
     Serial.println("adjusting right");
   }
   delay(5); 
@@ -193,10 +193,9 @@ void goFrom1To2() {
     else {
       course_correction();
     }
-  right_turn_counter = 0
-  tjunctionCount = 0
-
   }
+  right_turn_counter = 0 ;
+  tJunctionCount = 0 ;
   
 
 }
@@ -219,10 +218,11 @@ void goFrom2To4(){
     else {
       course_correction();
     }
-  tJunctionCount = 0
+  }
+  tJunctionCount = 0;
 }
 
-void goFrom2To5(){
+/*void goFrom2To5(){
 
 }
 
@@ -256,4 +256,4 @@ void goFrom2To3(){
 
 void goFrom7To1(){
 
-}
+}*/
