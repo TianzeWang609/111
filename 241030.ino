@@ -32,12 +32,17 @@ int tJunctionCount = 0;
 int right_turn_counter = 0;
 int left_turn_counter = 0;
 
+int onetotwocomplete = 0;
+bool initialMoveDone = false;   // 用于记录是否已完成初始前进
+bool leftTurnDone = false;      // 用于记录是否已完成第一次左转
+bool tJunctionDetected = false; // 用于确保每个T形路口只计数一次
+
 // Function prototypes
 void course_correction();
 void right_turn();
 void left_turn();
 void junction_checker();
-void navigation();
+void goFrom1to2();
 
 void setup() {
   Serial.begin(9600);
@@ -60,17 +65,28 @@ void setup() {
   // Set initial motor speeds
   right_motor->setSpeed(158);  // Max speed for right motor
   left_motor->setSpeed(150);   // Max speed for left motor
-
 }
+
 void loop() {
   // Read the button state
   int buttonState = digitalRead(startStopButtonPin);
 
   // Check if the button state changed from HIGH to LOW
   if (buttonState == LOW && lastButtonState == HIGH) {
-    delay(50);  // Simple debounce
     systemRunning = !systemRunning;  // Toggle system running state
     Serial.println(systemRunning ? "System Started" : "System Stopped");
+
+    // 重置计数器和状态变量
+    if (systemRunning) {
+      tJunctionCount = 0;
+      right_turn_counter = 0;
+      left_turn_counter = 0;
+      onetotwocomplete = 0;  // 重置任务完成标记
+      initialMoveDone = false;   // 重置初始前进标记
+      leftTurnDone = false;      // 重置左转完成标记
+      tJunctionDetected = false; // 重置T形路口检测状态
+      Serial.println("Counters and state reset");
+    }
   }
   
   // Update last button state
@@ -84,24 +100,7 @@ void loop() {
       digitalWrite(ledPin, !digitalRead(ledPin)); // Toggle LED state
     }
 
-    // Read the values from the line sensors
-    leftVal = digitalRead(leftSensorPin);
-    rightVal = digitalRead(rightSensorPin);
-    frontrightVal = digitalRead(frontrightSensorPin);
-    frontleftVal = digitalRead(frontleftSensorPin);
-
-    // Print sensor values for debugging
-    Serial.print("Left Sensor: ");
-    Serial.print(leftVal);
-    Serial.print(" Right Sensor: ");
-    Serial.println(rightVal);
-    Serial.print(" Front Right Sensor: ");
-    Serial.print(frontrightVal);
-    Serial.print(" Front Left Sensor: ");
-    Serial.println(frontleftVal);
-
-    // Start subroutines for line following and routing
-    junction_checker();
+    // Start subroutines for line following and routing only when running
     goFrom1to2();
   } else {
     // If system is stopped, turn off motors and LED
@@ -112,7 +111,7 @@ void loop() {
 }
 
 void course_correction() {
-  int baseSpeed = 200;   // 基础速度
+  int baseSpeed = 180;   // 基础速度
   int adjustment = 30;   // 调整幅度
 
   // 根据传感器状态调整速度
@@ -148,7 +147,6 @@ void course_correction() {
   }
 }
 
-
 void right_turn() {
   left_motor->setSpeed(50);
   right_motor->setSpeed(210);
@@ -156,7 +154,6 @@ void right_turn() {
   left_motor->run(FORWARD);
   Serial.println("Turning right");
   delay(2000);
-  
 }
 
 void left_turn() {
@@ -167,15 +164,39 @@ void left_turn() {
   Serial.println("Turning left");
   delay(2000);
 }
-void goFrom1to2(){
-  right_motor->run(BACKWARD);
-  left_motor->run(BACKWARD);
-  delay(1500);
-  course_correction();
-  if (tJunctionCount == 2){
-    left_turn();
+
+void goFrom1to2() {
+  static int tJunctionAfterLeftTurn = 0; // 用于记录左转后的T形路口数
+
+  // 第一步：前进1秒
+  if (!initialMoveDone) {
+    right_motor->setSpeed(180);
+    left_motor->setSpeed(180);
+    right_motor->run(BACKWARD);
+    left_motor->run(BACKWARD);
+    delay(1000);
+    initialMoveDone = true;
+    Serial.println("Initial forward move complete");
   }
   
+  // 检查 T形路口
+  junction_checker();
+
+  // 第二步：到达第一个 T形路口后左转
+  if (tJunctionCount == 2 && !leftTurnDone) {
+    right_motor->run(RELEASE);
+    left_motor->run(RELEASE);
+    left_turn();
+    leftTurnDone = true;
+    tJunctionDetected = false; // 重置T形路口检测状态
+    tJunctionAfterLeftTurn = 0; // 重置左转后计数，准备继续检测T形路口
+    Serial.println("Left turn complete");
+  }
+
+  // 第三步：执行左转后的 course_correction 直到第二个 T形路口，然后右转
+  if (leftTurnDone && tJunctionAfterLeftTurn < 2) {
+    course_correction(); // 在左转后继续前进
+  }
 }
 
 void junction_checker() {
@@ -190,16 +211,12 @@ void junction_checker() {
   frontrightVal = digitalRead(frontrightSensorPin);
   frontleftVal = digitalRead(frontleftSensorPin);
 
-  if (frontrightVal == HIGH && frontleftVal == HIGH) {
+  // 检查T形路口，仅当tJunctionDetected为false时进行计数
+  if (frontrightVal == HIGH && frontleftVal == HIGH && !tJunctionDetected) {
     tJunctionCount++;
+    tJunctionDetected = true;  // 避免重复检测
     Serial.println("T Junction detected");
-  }
-  if (frontrightVal == HIGH && frontleftVal == LOW) {
-    right_turn_counter++;
-    Serial.println("Right turn rejected");
-  }
-  if (frontrightVal == LOW && frontleftVal == HIGH) {
-    left_turn_counter++;
-    Serial.println("Left turn detected");
+  } else if (frontrightVal == LOW || frontleftVal == LOW) {
+    tJunctionDetected = false;  // 重置T形路口检测状态
   }
 }
