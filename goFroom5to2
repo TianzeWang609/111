@@ -1,0 +1,100 @@
+void goFrom5to2() {
+  static bool initialStraightDone = false;       // Tracks if the initial straight movement is complete
+  static bool firstLeftTurnDone = false;         // Tracks if the first left turn at T-junction is complete
+  static bool firstLeftTurnCornerDone = false;   // Tracks if the first left-turn corner is complete
+  static bool ignoredLeftTurnCorner = false;     // Tracks if the next left-turn corner is ignored
+  static bool secondLeftTurnCornerDone = false;  // Tracks if the second left-turn corner is complete
+  static bool rightTurnCornerDone = false;       // Tracks if the right turn at the right-turn corner is complete
+  static bool reachedEndOfCourse = false;        // Tracks if the end of the course is reached
+
+  // Step 1: Move forward until reaching the second T-junction, then perform a left turn
+  if (!initialStraightDone) {
+    course_correction();  // Move straight using course correction
+    junction_checker();   // Check for T-junctions
+
+    if (tJunctionCount == 2) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      firstLeftTurnDone = true;
+      initialStraightDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection after turn
+      Serial.println("Left turn at second T-junction complete");
+    }
+  }
+
+  // Step 2: Move forward to the first left-turn corner and turn left
+  if (firstLeftTurnDone && !firstLeftTurnCornerDone) {
+    course_correction();
+    if (detectLeftTurnCorner()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      firstLeftTurnCornerDone = true;
+      Serial.println("Left turn at first left-turn corner complete");
+    }
+  }
+
+  // Step 3: Ignore the next left-turn corner
+  if (firstLeftTurnCornerDone && !ignoredLeftTurnCorner) {
+    course_correction();
+    if (detectLeftTurnCorner()) {
+      ignoredLeftTurnCorner = true;
+      Serial.println("Ignored left-turn corner");
+    }
+  }
+
+  // Step 4: Perform a left turn at the next left-turn corner after ignoring one
+  if (ignoredLeftTurnCorner && !secondLeftTurnCornerDone) {
+    course_correction();
+    if (detectLeftTurnCorner()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      secondLeftTurnCornerDone = true;
+      Serial.println("Left turn at second left-turn corner complete");
+    }
+  }
+
+  // Step 5: Move forward to the right-turn corner and perform a right turn
+  if (secondLeftTurnCornerDone && !rightTurnCornerDone) {
+    course_correction();
+    if (detectRightTurnCorner()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      rightTurnCornerDone = true;
+      Serial.println("Right turn at right-turn corner complete");
+    }
+  }
+
+  // Step 6: Continue forward until `course_correction` loses the white line, then stop
+  if (rightTurnCornerDone && !reachedEndOfCourse) {
+    course_correction();
+
+    // Check if course_correction detects no white line
+    if (!isOnTrack()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      reachedEndOfCourse = true;
+      Serial.println("Stopped as course correction detects no white line");
+    }
+  }
+}
+
+// Helper function to detect left-turn corners
+bool detectLeftTurnCorner() {
+  return (frontleftVal == HIGH && frontrightVal == LOW);
+}
+
+// Helper function to detect right-turn corners
+bool detectRightTurnCorner() {
+  return (frontrightVal == HIGH && frontleftVal == LOW);
+}
+
+// Helper function to check if on track (white line detected)
+bool isOnTrack() {
+  leftVal = digitalRead(leftSensorPin);
+  rightVal = digitalRead(rightSensorPin);
+  return (leftVal == HIGH || rightVal == HIGH);  // At least one sensor on white
+}
