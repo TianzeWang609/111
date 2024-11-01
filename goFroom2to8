@@ -1,0 +1,110 @@
+void goFrom2to8() {
+  static bool reversedToFirstJunction = false;  // Tracks if reversing to the first T-junction is complete
+  static bool firstLeftTurnDone = false;        // Tracks if the first left turn is complete
+  static bool secondLeftTurnDone = false;       // Tracks if the second left turn is complete
+  static int ignoredTJunctions = 0;             // Tracks the number of T-junctions ignored
+  static bool thirdRightTurnDone = false;       // Tracks if the third right turn is complete
+  static bool rightTurnCornerIgnored = false;   // Tracks if the right-turn corner is ignored
+  static bool reachedFinalCorner = false;       // Tracks if the final corner has been reached for stopping
+  unsigned long cornerStartTime = 0;            // Tracks the start time after detecting the final corner
+
+  // Step 1: Reverse until reaching the first T-junction, then perform a left turn
+  if (!reversedToFirstJunction) {
+    right_motor->setSpeed(120);
+    left_motor->setSpeed(120);
+    right_motor->run(FORWARD);  // Reverse by running motors forward
+    left_motor->run(FORWARD);
+
+    junction_checker();  // Check for T-junctions
+
+    if (tJunctionCount == 1) { // Stop when the first T-junction is detected
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      reversedToFirstJunction = true;
+      firstLeftTurnDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection
+      Serial.println("Reversed to first T-junction and left turn complete");
+    }
+  }
+
+  // Step 2: Go straight to the next T-junction and perform a left turn
+  if (firstLeftTurnDone && !secondLeftTurnDone) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 2) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      secondLeftTurnDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection
+      Serial.println("Second left turn at T-junction complete");
+    }
+  }
+
+  // Step 3: Ignore the next two T-junctions
+  if (secondLeftTurnDone && ignoredTJunctions < 2) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 3 || tJunctionCount == 4) {
+      ignoredTJunctions++;
+      Serial.println("Ignoring T-junction");
+      tJunctionDetected = false;  // Reset T-junction detection for ignored junctions
+    }
+  }
+
+  // Step 4: Perform a right turn at the third T-junction after ignoring two
+  if (ignoredTJunctions == 2 && !thirdRightTurnDone) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 5) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      thirdRightTurnDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection after turn
+      Serial.println("Right turn at third T-junction complete");
+    }
+  }
+
+  // Step 5: Ignore the next right-turn corner
+  if (thirdRightTurnDone && !rightTurnCornerIgnored) {
+    course_correction();
+    if (detectRightTurnCorner()) {
+      Serial.println("Ignoring right-turn corner");
+      rightTurnCornerIgnored = true;
+    }
+  }
+
+  // Step 6: Continue forward until reaching a regular corner, then stop after 3 seconds
+  if (rightTurnCornerIgnored && !reachedFinalCorner) {
+    course_correction();
+    if (detectRegularCorner()) {  // Detects a regular corner
+      right_motor->run(FORWARD);
+      left_motor->run(FORWARD);
+      cornerStartTime = millis();  // Start timer for final 3-second run
+      reachedFinalCorner = true;
+      Serial.println("Detected final corner, starting 3-second forward movement");
+    }
+  }
+
+  // Step 7: Stop after moving forward for 3 seconds
+  if (reachedFinalCorner && (millis() - cornerStartTime >= 3000)) {
+    right_motor->run(RELEASE);
+    left_motor->run(RELEASE);
+    Serial.println("Stopped after final 3-second movement");
+  }
+}
+
+// Helper function to detect right-turn corners
+bool detectRightTurnCorner() {
+  return (frontrightVal == HIGH && frontleftVal == LOW);
+}
+
+// Helper function to detect regular corners
+bool detectRegularCorner() {
+  return (frontrightVal == LOW && frontleftVal == LOW);  // Modify based on your corner detection criteria
+}
