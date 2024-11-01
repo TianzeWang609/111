@@ -1,0 +1,58 @@
+void goFrom2to4() {
+  static bool reversedToFirstJunction = false;
+  static bool firstLeftTurnDone = false; 
+  static bool firstRightTurnDone = false; 
+
+  // Step 1: Reverse until reaching the first T-junction
+  if (!reversedToFirstJunction) {
+    right_motor->setSpeed(120);
+    left_motor->setSpeed(120);
+    right_motor->run(FORWARD); 
+    left_motor->run(FORWARD);
+
+    junction_checker();
+
+    if (tJunctionCount == 1) { 
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      reversedToFirstJunction = true;
+      tJunctionDetected = false;  
+      Serial.println("Reversed to first T-junction");
+    }
+  }
+
+  // Step 2: Perform a left turn at the first T-junction
+  if (reversedToFirstJunction && !firstLeftTurnDone) {
+    left_turn();
+    firstLeftTurnDone = true;
+    tJunctionDetected = false; 
+    Serial.println("Left turn at first T-junction complete");
+  }
+
+  // Step 3: Move forward to the next T-junction and perform a right turn
+  if (firstLeftTurnDone && !firstRightTurnDone) {
+    course_correction(); 
+
+    junction_checker();
+    if (tJunctionCount == 2) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      firstRightTurnDone = true;
+      tJunctionDetected = false; 
+      Serial.println("Right turn at second T-junction complete");
+    }
+  }
+
+  // Step 4: Move forward and stop at the third T-junction
+  if (firstRightTurnDone) {
+    course_correction(); 
+
+    junction_checker();
+    if (tJunctionCount == 3) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      Serial.println("Stopped at final T-junction");
+    }
+  }
+}
