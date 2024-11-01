@@ -1,0 +1,101 @@
+void goFrom2to7() {
+  static bool reversedToFirstJunction = false; // Tracks if reversing to the first T-junction is complete
+  static bool firstLeftTurnDone = false;       // Tracks if the first left turn is complete
+  static bool secondLeftTurnDone = false;      // Tracks if the second left turn is complete
+  static int ignoredTJunctions = 0;            // Tracks the number of T-junctions ignored
+  static bool thirdRightTurnDone = false;      // Tracks if the third right turn is complete
+  static bool rightTurnCornerDone = false;     // Tracks if the right turn at the right-turn corner is complete
+  static bool reachedFinalTJunction = false;   // Tracks if the final T-junction is reached for stopping
+
+  // Step 1: Reverse until reaching the first T-junction, then perform a left turn
+  if (!reversedToFirstJunction) {
+    right_motor->setSpeed(120);
+    left_motor->setSpeed(120);
+    right_motor->run(FORWARD);  // Reverse by running motors forward
+    left_motor->run(FORWARD);
+
+    junction_checker();  // Check for T-junctions
+
+    if (tJunctionCount == 1) { // Stop when the first T-junction is detected
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      reversedToFirstJunction = true;
+      firstLeftTurnDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection
+      Serial.println("Reversed to first T-junction and left turn complete");
+    }
+  }
+
+  // Step 2: Go straight to the next T-junction and perform a left turn
+  if (firstLeftTurnDone && !secondLeftTurnDone) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 2) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      secondLeftTurnDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection
+      Serial.println("Second left turn at T-junction complete");
+    }
+  }
+
+  // Step 3: Ignore the next two T-junctions
+  if (secondLeftTurnDone && ignoredTJunctions < 2) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 3 || tJunctionCount == 4) {
+      ignoredTJunctions++;
+      Serial.println("Ignoring T-junction");
+      tJunctionDetected = false;  // Reset T-junction detection for ignored junctions
+    }
+  }
+
+  // Step 4: Perform a right turn at the third T-junction after ignoring two
+  if (ignoredTJunctions == 2 && !thirdRightTurnDone) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 5) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      thirdRightTurnDone = true;
+      tJunctionDetected = false; // Reset T-junction detection after turn
+      Serial.println("Right turn at third T-junction complete");
+    }
+  }
+
+  // Step 5: Move forward to the right-turn corner and perform a right turn
+  if (thirdRightTurnDone && !rightTurnCornerDone) {
+    course_correction();
+    if (detectRightTurnCorner()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      rightTurnCornerDone = true;
+      Serial.println("Right turn at right-turn corner complete");
+    }
+  }
+
+  // Step 6: Continue straight until reaching the next T-junction and stop
+  if (rightTurnCornerDone && !reachedFinalTJunction) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 6) {  // Adjust this count based on final T-junction's order in route
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      reachedFinalTJunction = true;
+      Serial.println("Stopped at final T-junction");
+    }
+  }
+}
+
+// Helper function to detect right-turn corners
+bool detectRightTurnCorner() {
+  return (frontrightVal == HIGH && frontleftVal == LOW);
+}
