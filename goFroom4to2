@@ -1,0 +1,82 @@
+void goFrom4to2() {
+  static bool initialStraightDone = false; 
+  static bool firstRightTurnDone = false; 
+  static int rightTurnCornerCount = 0; 
+  static bool reachedEndOfCourse = false; 
+  // Step 1: Initial straight movement until the second T-junction, then perform a right turn
+  if (!initialStraightDone) {
+    course_correction(); 
+    junction_checker(); 
+
+    if (tJunctionCount == 2) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      firstRightTurnDone = true;
+      initialStraightDone = true;
+      tJunctionDetected = false; 
+      Serial.println("Right turn at second T-junction complete");
+    }
+  }
+
+  // Step 2: Move forward until reaching the first right-turn corner, then turn right
+  if (firstRightTurnDone && rightTurnCornerCount == 0) {
+    course_correction();
+    if (detectRightTurnCorner()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      rightTurnCornerCount++;
+      Serial.println("Right turn at first right-turn corner complete");
+    }
+  }
+
+  // Step 3: Move forward to the second right-turn corner, then turn right
+  if (rightTurnCornerCount == 1) {
+    course_correction();
+    if (detectRightTurnCorner()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      rightTurnCornerCount++;
+      Serial.println("Right turn at second right-turn corner complete");
+    }
+  }
+
+  // Step 4: Move forward to the third right-turn corner, then turn right
+  if (rightTurnCornerCount == 2) {
+    course_correction();
+    if (detectRightTurnCorner()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      right_turn();
+      rightTurnCornerCount++;
+      Serial.println("Right turn at third right-turn corner complete");
+    }
+  }
+
+  // Step 5: Continue forward until `course_correction` loses the white line, then stop
+  if (rightTurnCornerCount == 3 && !reachedEndOfCourse) {
+    course_correction();
+
+    // Check if course_correction detects no white line
+    if (!isOnTrack()) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      reachedEndOfCourse = true;
+      Serial.println("Stopped as course correction detects no white line");
+    }
+  }
+}
+
+// Helper function to detect right-turn corners
+bool detectRightTurnCorner() {
+  return (frontrightVal == HIGH && frontleftVal == LOW);
+}
+
+// Helper function to check if on track (white line detected)
+bool isOnTrack() {
+  leftVal = digitalRead(leftSensorPin);
+  rightVal = digitalRead(rightSensorPin);
+  return (leftVal == HIGH || rightVal == HIGH); 
+}
