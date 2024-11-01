@@ -1,0 +1,54 @@
+void goFrom2to5() {
+  static bool reversedToFirstJunction = false; // Tracks if reversing to the first T-junction is complete
+  static bool firstLeftTurnDone = false;       // Tracks if the first left turn is complete
+  static bool secondLeftTurnDone = false;      // Tracks if the second left turn is complete
+  static bool reachedFinalTJunction = false;   // Tracks if the final T-junction is reached for stopping
+
+  // Step 1: Reverse until reaching the first T-junction, then perform a left turn
+  if (!reversedToFirstJunction) {
+    right_motor->setSpeed(120);
+    left_motor->setSpeed(120);
+    right_motor->run(FORWARD);  // Reverse by running motors forward
+    left_motor->run(FORWARD);
+
+    junction_checker();  // Check for T-junctions
+
+    if (tJunctionCount == 1) { // Stop when the first T-junction is detected
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      reversedToFirstJunction = true;
+      firstLeftTurnDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection
+      Serial.println("Reversed to first T-junction and left turn complete");
+    }
+  }
+
+  // Step 2: Go straight to the next T-junction and perform a left turn
+  if (firstLeftTurnDone && !secondLeftTurnDone) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 2) {
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      left_turn();
+      secondLeftTurnDone = true;
+      tJunctionDetected = false;  // Reset T-junction detection
+      Serial.println("Second left turn at T-junction complete");
+    }
+  }
+
+  // Step 3: Continue straight until reaching the next T-junction and stop
+  if (secondLeftTurnDone && !reachedFinalTJunction) {
+    course_correction();
+    junction_checker();
+
+    if (tJunctionCount == 3) {  // Adjust this count based on final T-junction's order in route
+      right_motor->run(RELEASE);
+      left_motor->run(RELEASE);
+      reachedFinalTJunction = true;
+      Serial.println("Stopped at final T-junction");
+    }
+  }
+}
