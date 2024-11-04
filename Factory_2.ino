@@ -6,14 +6,14 @@ Adafruit_DCMotor *right_motor = AFMS.getMotor(3);  // Motor on port 3 (right mot
 Adafruit_DCMotor *left_motor = AFMS.getMotor(4);   // Motor on port 4 (left motor)
 
 // Line sensor pins
-int leftSensorPin = 3;
-int rightSensorPin = 2;
-int frontrightSensorPin = 6;
-int frontleftSensorPin = 5;
+int leftSensorPin = 11;
+int rightSensorPin = 10;
+int frontrightSensorPin = 9;
+int frontleftSensorPin = 12;
 
 // Button and LED pins
-int startStopButtonPin = 7; // Start/stop button
-int ledPin = 13;            // LED for flashing indicator
+int startStopButtonPin = 5; // Start/stop button
+int ledPin = 2;            // LED for flashing indicator
 
 // System state variables
 bool systemRunning = false;  // Tracks if the system is running
