@@ -22,6 +22,7 @@ int rightSensorPin = 10;
 int frontrightSensorPin = 9;
 int frontleftSensorPin = 12;
 int magnetsensor = 8;
+int magnetLED_Contaminated = 3 ;
 // Button and LED pins
 int startStopButtonPin = 5; // Start/stop button
 int ledPin = 2;             // LED for flashing indicator
@@ -65,6 +66,7 @@ void setGateServoHorizontal();
 void setGateServoDown();
 void search_and_find() ;
 void goFrom2to8();
+
 void setup() {
   Serial.begin(9600);
   Serial.println("Adafruit Motorshield v2 - Dual Line Sensor Controlled Motors!");
@@ -146,15 +148,11 @@ void loop() {
       goFrom1to2();
         // Mark goFrom1to2 as complete
     } else {
-      int sensorVal = digitalRead(magnetsensor);
-      if(sensorVal = LOW){
-      setGateServoDown();  // Set gate servo down after goFrom1to2 completes
       goFrom2to4();  // Execute goFrom2to4 after setting servo down
      // Stop the system after completing the sequence
-    }else {
-      goFrom2to8();
     }
-  } }else {
+    //goFrom2to4();
+  } else {
     // If system is stopped, turn off motors and LED
     left_motor->run(RELEASE);
     right_motor->run(RELEASE);
@@ -194,6 +192,37 @@ void course_correction() {
   }
 }
 
+void course_correction_slow() {
+  int baseSpeed = 100;
+  int adjustment = 30;
+
+  if (leftVal == HIGH && rightVal == HIGH) {
+    right_motor->setSpeed(baseSpeed);
+    left_motor->setSpeed(baseSpeed);
+    right_motor->run(BACKWARD);
+    left_motor->run(BACKWARD);
+    Serial.println("Driving forward");
+  } 
+  else if (leftVal == LOW && rightVal == HIGH) {
+    right_motor->setSpeed(baseSpeed + adjustment);
+    left_motor->setSpeed(baseSpeed - adjustment);
+    right_motor->run(BACKWARD);
+    left_motor->run(BACKWARD);
+    Serial.println("Adjusting right");
+  } 
+  else if (leftVal == HIGH && rightVal == LOW) {
+    right_motor->setSpeed(baseSpeed - adjustment);
+    left_motor->setSpeed(baseSpeed + adjustment);
+    right_motor->run(BACKWARD);
+    left_motor->run(BACKWARD);
+    Serial.println("Adjusting left");
+  } 
+  else {
+    right_motor->run(RELEASE);
+    left_motor->run(RELEASE);
+    Serial.println("Stopping or off track");
+  }
+}
 
 
 void right_turn() {
@@ -259,43 +288,42 @@ void goFrom2to4() {
   static bool firstRightTurnDone = false; 
   static bool finalStopDone = false;  
 
-  // Step 1: Reverse until reaching the first T-junction
-  setGateServoDown();  // Ensure the servo is down before starting
-  delay(1500);  // Delay to allow servo movement
 
+   // Step 1: Reverse until reaching the first T-junction
   if (!reversedToFirstJunction && !finalStopDone) {
+    
     right_motor->setSpeed(158);
-    left_motor->setSpeed(150);
+    left_motor->setSpeed(145);
     right_motor->run(FORWARD); 
     left_motor->run(FORWARD);
 
-    junction_checker();  // Check for T-junction
+    junction_checker();
 
     if (tJunctionCount == 1) { 
       right_motor->run(RELEASE);
       left_motor->run(RELEASE);
       reversedToFirstJunction = true;
-      tJunctionDetected = false;  // Reset detection for the next junctions
+      tJunctionDetected = false;  
       Serial.println("Reversed to first T-junction");
     }
   }
 
   // Step 2: Custom left turn at first T-junction
   if (reversedToFirstJunction && !firstLeftTurnDone && !finalStopDone) {
-    left_motor->setSpeed(255);   // Increase speed for sharper turn
-    right_motor->setSpeed(70);   // Slightly slower speed for controlled turn
+    left_motor->setSpeed(255); // Increase speed for sharper turn
+    right_motor->setSpeed(60);  
     right_motor->run(FORWARD);
     left_motor->run(BACKWARD);
-    delay(2600);  // Adjust delay for sharper turn
+    delay(2700);  // Increased delay for full turn, adjust as needed
     right_motor->run(RELEASE);
     left_motor->run(RELEASE);
     
     firstLeftTurnDone = true;
-    tJunctionDetected = false;   // Reset detection for the next junctions
+    tJunctionDetected = false; 
     Serial.println("Left turn at first T-junction complete");
   }
 
-  // Step 3: Move forward to the next T-junction and custom right turn
+  // Step 3: Move forward to next T-junction and custom right turn
   if (firstLeftTurnDone && !firstRightTurnDone && !finalStopDone) {
     course_correction(); 
     junction_checker();
@@ -303,13 +331,11 @@ void goFrom2to4() {
     if (tJunctionCount == 2) {
       right_motor->run(RELEASE);
       left_motor->run(RELEASE);
-
-      // Perform a custom right turn
       left_motor->setSpeed(70);  
       right_motor->setSpeed(255); 
       right_motor->run(BACKWARD);
       left_motor->run(FORWARD);
-      delay(2700);  // Adjust delay for sharper turn
+      delay(2700);  // Increased delay for full turn, adjust as needed
       right_motor->run(RELEASE);
       left_motor->run(RELEASE);
 
@@ -329,7 +355,7 @@ void goFrom2to4() {
       left_motor->run(RELEASE);
       finalStopDone = true;
       Serial.println("Stopped at final T-junction");
-      setGateServoUp();  // Move the servo up at the end
+      setGateServoUp();
     }
   }
 }
@@ -347,6 +373,8 @@ void goFrom2to8() {
 
   // Step 1: Reverse until reaching the first T-junction, then perform a custom left turn
   if (!reversedToFirstJunction) {
+    setGateServoDown();  // Ensure the servo is down before starting
+    delay(1500); 
     right_motor->setSpeed(158);  // Set speed similar to goFrom2to4
     left_motor->setSpeed(145);
     right_motor->run(FORWARD);   // Reverse by running motors forward
@@ -363,7 +391,7 @@ void goFrom2to8() {
       right_motor->setSpeed(60);
       right_motor->run(FORWARD);
       left_motor->run(BACKWARD);
-      delay(2700);                // Adjusted delay for full turn
+      delay(2500);                // Adjusted delay for full turn
       right_motor->run(RELEASE);
       left_motor->run(RELEASE);
 
@@ -520,7 +548,7 @@ void goFrom1to2() {
     left_motor->setSpeed(200);
     right_motor->run(BACKWARD);
     left_motor->run(BACKWARD);
-    delay(2000);
+    delay(3000);
     initialMoveDone = true;
     Serial.println("Initial forward move complete");
   }
@@ -585,20 +613,20 @@ void goFrom1to2() {
     right_motor->setSpeed(255); 
     right_motor->run(BACKWARD);
     left_motor->run(FORWARD);
-    delay(2600);  // Increased delay for full turn, adjust as needed
+    delay(2500);  // Increased delay for full turn, adjust as needed
     right_motor->run(RELEASE);
     left_motor->run(RELEASE);
     rightTurnDone4 = true;
     Serial.println("right turn complete forth junction");
   }
   if (rightTurnDone4 == true) {
-    course_correction(); 
+    course_correction_slow(); 
     setGateServoHorizontal () ;
     delay(1000) ;
     search_and_find() ;
+    setGateServoDown();  // Ensure the servo is down before starting
+    delay(1500);  // Delay to allow servo movement
     from1to2Complete = true;
-
-
   }
 }
 
@@ -618,13 +646,13 @@ void search_and_find() {
 
 
 void setGateServoUp() {
-  gate_servo.write(0);  // Set servo to 0 degrees
+  gate_servo.write(30);  // Set servo to 0 degrees
   Serial.println("Gate servo set to vertical up");
 }
 
 // Function to set gate_servo to horizontal position
 void setGateServoHorizontal() {
-  gate_servo.write(60);  // Set servo to 90 degrees
+  gate_servo.write(90);  // Set servo to 90 degrees
   Serial.println("Gate servo set to horizontal");
 }
 
@@ -643,3 +671,4 @@ void oneighty_turn() {
   right_motor->run(RELEASE);
   left_motor->run(RELEASE);
 }
+
